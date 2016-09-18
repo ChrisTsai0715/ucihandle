@@ -17,8 +17,6 @@ UCIHandle::UCIHandle()
 
 UCIHandle::~UCIHandle()
 {
-//    if (m_ctx)
-//        uci_free_context(m_ctx);
 }
 
 bool UCIHandle::GetValue(const char *configName, char *value)
@@ -128,3 +126,32 @@ bool UCIHandle::SetValue(const char *configName, int value)
     return SetValue(configName, strValue);
 }
 
+bool UCIHandle::GetAllOption(const char *configName, std::map<std::string, std::string> &optionMap)
+{
+    CAutoLockEx<CMutexLock> m_lock(m_mutex);
+    struct uci_context *ctx = uci_alloc_context();
+
+    if (!m_uciConfigPath.empty())
+        uci_set_confdir(ctx, m_uciConfigPath.c_str());
+
+    char strConfigName[100] = {0};
+    strcpy(strConfigName, configName);
+
+    struct uci_ptr p;
+    if(UCI_OK != uci_lookup_ptr(ctx, &p, strConfigName, true))
+    {
+        uci_perror(ctx, "[uci] get value err");
+        goto cleanup;
+    }
+
+    uci_element *e;
+    uci_foreach_element(&p.s->options , e)
+    {
+        uci_option *option = uci_to_option(e);
+        optionMap[option->e.name] = option->v.string;
+    }
+
+cleanup:
+    uci_free_context(ctx);
+    return true;
+}
